@@ -1,0 +1,23 @@
+{
+  "name": "binance-dashboard-backend",
+  "version": "0.0.1",
+  "private": true,
+  "main": "index.js",
+  "scripts": {
+    "test": "mocha data/redis-client.test.js",
+    "start": "node index.js"
+  },
+  "author": "Ludwig Muench",
+  "license": "MIT",
+  "dependencies": {
+    "connect-redis": "^3.3.3",
+    "cors": "^2.8.4",
+    "express": "^4.16.2",
+    "node-fetch": "^2.0.0",
+    "redis": "^2.8.0"
+  },
+  "devDependencies": {
+    "chai": "^4.1.2",
+    "mocha": "^5.0.0"
+  }
+}
