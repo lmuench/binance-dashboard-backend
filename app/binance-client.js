@@ -21,19 +21,9 @@ binanceClient.setUpdateInterval = ms => {
 const update = async () => {
   const json = await fetchPrices()
   const pairs = extractPairs(json)
-
-  addPriceChange(pairs.btc, oldPairs.btc)
-  addPriceChange(pairs.eth, oldPairs.eth)
-  addPriceChange(pairs.bnb, oldPairs.bnb)
-  addPriceChange(pairs.usdt, oldPairs.usdt)
-
-  const btcUsdtPrice = pairs.usdt.find(pair => pair.symbol.startsWith('BTC')).price
-  const ethUsdtPrice = pairs.usdt.find(pair => pair.symbol.startsWith('ETH')).price
-  const bnbUsdtPrice = pairs.usdt.find(pair => pair.symbol.startsWith('BNB')).price
-  addUsdtPrice(pairs.btc, btcUsdtPrice)
-  addUsdtPrice(pairs.eth, ethUsdtPrice)
-  addUsdtPrice(pairs.bnb, bnbUsdtPrice)
-
+  
+  addLastPriceChanges(pairs)
+  addUsdtPrices(pairs)
   const id = await dbClient.incr('tradingpairs:id')
   await addHourlyChanges(pairs, id)
   
@@ -61,7 +51,14 @@ const extractPairs = json => {
   return pairs
 }
 
-const addPriceChange = (newPairs, oldPairs) => {
+const addLastPriceChanges = newPairs => {
+  addLastPriceChange(newPairs.btc, oldPairs.btc)
+  addLastPriceChange(newPairs.eth, oldPairs.eth)
+  addLastPriceChange(newPairs.bnb, oldPairs.bnb)
+  addLastPriceChange(newPairs.usdt, oldPairs.usdt)
+}
+
+const addLastPriceChange = (newPairs, oldPairs) => {
   if (oldPairs.length != newPairs.length) {
     newPairs.forEach(coin => {
       coin.change = 0
@@ -71,6 +68,15 @@ const addPriceChange = (newPairs, oldPairs) => {
   for (let i = 0; i < newPairs.length; ++i) {
     newPairs[i].change = newPairs[i].price.localeCompare(oldPairs[i].price)
   }
+}
+
+const addUsdtPrices = pairs => {
+  const btcUsdtPrice = pairs.usdt.find(pair => pair.symbol.startsWith('BTC')).price
+  const ethUsdtPrice = pairs.usdt.find(pair => pair.symbol.startsWith('ETH')).price
+  const bnbUsdtPrice = pairs.usdt.find(pair => pair.symbol.startsWith('BNB')).price
+  addUsdtPrice(pairs.btc, btcUsdtPrice)
+  addUsdtPrice(pairs.eth, ethUsdtPrice)
+  addUsdtPrice(pairs.bnb, bnbUsdtPrice)
 }
 
 const addUsdtPrice = (pairs, usdtPrice) => {
