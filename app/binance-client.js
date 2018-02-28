@@ -69,7 +69,7 @@ const addPriceChange = (newPairs, oldPairs) => {
 
 const addUsdtPrice = (pairs, usdtPrice) => {
   pairs.forEach(coin => {
-    coin.usdt = (coin.price * usdtPrice).toString() // TODO: do .toString() client-side
+    coin.usdt = Number(coin.price * usdtPrice).toFixed(2)
   })
 }
 
