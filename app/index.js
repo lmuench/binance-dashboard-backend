@@ -15,7 +15,8 @@ app.get('/updateinterval', async (req, res) => {
 })
 
 app.get('/tradingpairs', async (req, res) => {
-  res.json(await dbClient.getJson('tradingpairs'))
+  const lastId = await dbClient.get('tradingpairs:id')
+  res.json(await dbClient.getJson('tradingpairs:' + lastId))
 })
 
 module.exports = app

@@ -1,21 +1,21 @@
 const dbClient = require('../data/redis-client')
 const fetch = require('node-fetch')
 
-const client = {}  // exported by module
+const binanceClient = {}  // exported by module
+binanceClient.updateInteval = null
 let oldPairs = {
   btc: [],
   eth: [],
   bnb: [],
   usdt: []
 }
-let updatePricesInteval = null
 
 // exported by module
-client.setUpdateInterval = ms => { 
-  updatePricesInteval = setInterval(updatePrices, ms)
+binanceClient.setUpdateInterval = ms => { 
+  binanceClient.updateInteval = setInterval(update, ms)
 }
 
-const updatePrices = async () => {
+const update = async () => {
   const json = await fetchPrices()
   const pairs = extractPairs(json)
 
@@ -31,15 +31,17 @@ const updatePrices = async () => {
   addUsdtPrice(pairs.eth, ethUsdtPrice)
   addUsdtPrice(pairs.bnb, bnbUsdtPrice)
 
-  dbClient.setJson('tradingpairs', pairs)
   oldPairs = pairs
+
+  const id = await dbClient.incr('tradingpairs:id')
+  dbClient.setJson('tradingpairs:' + id, pairs)
 }
 
 const fetchPrices = async () => {
   const res = await fetch('https://api.binance.com/api/v3/ticker/price')
   console.log('Status: ' + res.status)
   if (res.status === 429) {
-    clearInterval(updatePricesInteval)
+    clearInterval(binanceClient.updateInteval)
     console.log("WARNING - Binance returned 429 (too many requests)!")
   }
   const json = await res.json()
@@ -73,4 +75,4 @@ const addUsdtPrice = (pairs, usdtPrice) => {
   })
 }
 
-module.exports = client
+module.exports = binanceClient
