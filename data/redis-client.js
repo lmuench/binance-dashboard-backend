@@ -1,3 +1,4 @@
+const config = require('../config')
 const redis = require('redis')
 const redisClient = redis.createClient()
 const { promisify } = require('util')
@@ -11,9 +12,9 @@ client.del = key => {
   redisClient.del(key)
 }
 
-// stores value
+// stores value (expires after n seconds; n defined in config)
 client.set = (key, value) => {
-  redisClient.set(key, value)
+  redisClient.set(key, value, 'EX', config.dataExpirationInSeconds)
 }
 
 // returns value

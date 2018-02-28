@@ -35,6 +35,7 @@ const update = async () => {
 
   const id = await dbClient.incr('tradingpairs:id')
   dbClient.setJson('tradingpairs:' + id, pairs)
+  // dbClient.del('tradingpairs:'
 }
 
 const fetchPrices = async () => {
