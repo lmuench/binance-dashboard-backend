@@ -1,14 +1,39 @@
 const dbClient = require('../data/redis-client')
 const fetch = require('node-fetch')
 
-const client = {}
+const client = {}  // exported by module
+let oldPairs = {
+  btc: [],
+  eth: [],
+  bnb: [],
+  usdt: []
+}
+let updatePricesInteval = null
 
-let oldBtcPairs = []
-let oldBtcUsdt = {}
+// exported by module
+client.setUpdateInterval = ms => { 
+  updatePricesInteval = setInterval(updatePrices, ms)
+}
 
-// let counter = 0 // TODO: store symbols + prices only with incrementing index every 60 seconds, overwriting every 24 hours
+const updatePrices = async () => {
+  const json = await fetchPrices()
+  const pairs = extractPairs(json)
 
-// store symbols seperately and only send the requested ones?
+  addPriceChange(pairs.btc, oldPairs.btc)
+  addPriceChange(pairs.eth, oldPairs.eth)
+  addPriceChange(pairs.bnb, oldPairs.bnb)
+  addPriceChange(pairs.usdt, oldPairs.usdt)
+
+  const btcUsdtPrice = pairs.usdt.find(pair => pair.symbol.startsWith('BTC')).price
+  const ethUsdtPrice = pairs.usdt.find(pair => pair.symbol.startsWith('ETH')).price
+  const bnbUsdtPrice = pairs.usdt.find(pair => pair.symbol.startsWith('BNB')).price
+  addUsdtPrice(pairs.btc, btcUsdtPrice)
+  addUsdtPrice(pairs.eth, ethUsdtPrice)
+  addUsdtPrice(pairs.bnb, bnbUsdtPrice)
+
+  dbClient.setJson('tradingpairs', pairs)
+  oldPairs = pairs
+}
 
 const fetchPrices = async () => {
   const res = await fetch('https://api.binance.com/api/v3/ticker/price')
@@ -21,53 +46,31 @@ const fetchPrices = async () => {
   return json
 }
 
-const processBtcUsdt = json => {
-  const btcUsdt = json.find(coin => coin.symbol === 'BTCUSDT')
-  btcUsdt.change = btcUsdt.price.localeCompare(oldBtcUsdt.price)
-  return btcUsdt
+const extractPairs = json => {
+  const pairs = {}
+  pairs.btc = json.filter(coin => coin.symbol.endsWith('BTC'))
+  pairs.eth = json.filter(coin => coin.symbol.endsWith('ETH'))
+  pairs.bnb = json.filter(coin => coin.symbol.endsWith('BNB'))
+  pairs.usdt = json.filter(coin => coin.symbol.endsWith('USDT'))
+  return pairs
 }
 
-const processBtcPairs = (json, btcUsdtPrice) => {
-  const btcPairs = json.filter(coin => coin.symbol.endsWith('BTC'))
-  addPriceChangeProperty(btcPairs)
-  addUsdtPrice(btcPairs, btcUsdtPrice)
-  return btcPairs
-
-}
-
-const updatePrices = async () => {
-  const json = await fetchPrices()
-  const btcUsdt = processBtcUsdt(json)
-  oldBtcUsdt = btcUsdt
-  dbClient.setJson('btcusdt', btcUsdt)
-  const btcPairs = processBtcPairs(json, btcUsdt.price)
-  oldBtcPairs = btcPairs
-  dbClient.setJson('btcpairs', btcPairs)
-}
-
-
-const addPriceChangeProperty = newBtcPairs => {
-  if (oldBtcPairs.length != newBtcPairs.length) {
-    newBtcPairs.forEach(coin => {
+const addPriceChange = (newPairs, oldPairs) => {
+  if (oldPairs.length != newPairs.length) {
+    newPairs.forEach(coin => {
       coin.change = 0
     })
     return
   }
-  for (let i = 0; i < newBtcPairs.length; ++i) {
-    newBtcPairs[i].change = newBtcPairs[i].price.localeCompare(oldBtcPairs[i].price)
+  for (let i = 0; i < newPairs.length; ++i) {
+    newPairs[i].change = newPairs[i].price.localeCompare(oldPairs[i].price)
   }
 }
 
-const addUsdtPrice = (btcPairs, btcUsdtPrice) => {
-  btcPairs.forEach(coin => {
-    coin.usdt = (coin.price * btcUsdtPrice).toString()
+const addUsdtPrice = (pairs, usdtPrice) => {
+  pairs.forEach(coin => {
+    coin.usdt = (coin.price * usdtPrice).toString() // TODO: do .toString() client-side
   })
-}
-
-let updatePricesInteval = null
-
-client.setUpdateInterval = ms => {
-  updatePricesInteval = setInterval(updatePrices, ms)
 }
 
 module.exports = client
