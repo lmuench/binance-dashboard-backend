@@ -2,7 +2,7 @@ const dbClient = require('../data/redis-client')
 const fetch = require('node-fetch')
 
 const binanceClient = {}  // exported by module
-binanceClient.updateInteval = null
+
 let oldPairs = {
   btc: [],
   eth: [],
@@ -10,9 +10,12 @@ let oldPairs = {
   usdt: []
 }
 
+let updateInterval = null
+
 // exported by module
 binanceClient.setUpdateInterval = ms => { 
-  binanceClient.updateInteval = setInterval(update, ms)
+  updateInterval = setInterval(update, ms)
+  binanceClient.updateIntervalInSeconds = Math.round(ms / 1000)
 }
 
 const update = async () => {
@@ -31,18 +34,18 @@ const update = async () => {
   addUsdtPrice(pairs.eth, ethUsdtPrice)
   addUsdtPrice(pairs.bnb, bnbUsdtPrice)
 
-  oldPairs = pairs
-
   const id = await dbClient.incr('tradingpairs:id')
+  await addHourlyChanges(pairs, id)
+  
+  oldPairs = pairs
   dbClient.setJson('tradingpairs:' + id, pairs)
-  // dbClient.del('tradingpairs:'
 }
 
 const fetchPrices = async () => {
   const res = await fetch('https://api.binance.com/api/v3/ticker/price')
   console.log('Status: ' + res.status)
   if (res.status === 429) {
-    clearInterval(binanceClient.updateInteval)
+    clearInterval(updateInterval)
     console.log("WARNING - Binance returned 429 (too many requests)!")
   }
   const json = await res.json()
@@ -74,6 +77,40 @@ const addUsdtPrice = (pairs, usdtPrice) => {
   pairs.forEach(coin => {
     coin.usdt = Number(coin.price * usdtPrice).toFixed(2)
   })
+}
+
+const addHourlyChanges = async (newPairs, newId) => {
+  const hourOldId = Math.round(newId - 3600 / binanceClient.updateIntervalInSeconds)
+
+  if (hourOldId < 0) {
+    console.log('No 1-hour-old data exists yet.')
+    return
+  }
+
+  const oldPairs = await dbClient.getJson('tradingpairs:' + hourOldId)
+  if (oldPairs === null) {
+    console.log('No 1-hour-old data found.')
+    return
+  }
+
+  addHourlyChange(newPairs.btc, oldPairs.btc, 'price')
+  addHourlyChange(newPairs.eth, oldPairs.eth, 'price')
+  addHourlyChange(newPairs.bnb, oldPairs.bnb, 'price')
+  addHourlyChange(newPairs.usdt, oldPairs.usdt, 'price')
+
+  addHourlyChange(newPairs.btc, oldPairs.btc, 'usdt')
+  addHourlyChange(newPairs.eth, oldPairs.eth, 'usdt')
+  addHourlyChange(newPairs.bnb, oldPairs.bnb, 'usdt')
+}
+
+const addHourlyChange = (newPairs, oldPairs, type) => {
+  
+  if (oldPairs.length != newPairs.length) return
+
+  for (let i = 0; i < newPairs.length; ++i) {
+    newPairs[i][type + 'HourlyChange'] = 
+      Number(newPairs[i][type] / oldPairs[i][type] * 100 - 100).toFixed(2)
+  }
 }
 
 module.exports = binanceClient
