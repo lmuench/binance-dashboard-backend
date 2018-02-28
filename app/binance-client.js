@@ -1,5 +1,7 @@
-const client = require('../data/redis-client')
+const dbClient = require('../data/redis-client')
 const fetch = require('node-fetch')
+
+const client = {}
 
 let oldBtcPairs = []
 let oldBtcUsdt = {}
@@ -37,10 +39,10 @@ const updatePrices = async () => {
   const json = await fetchPrices()
   const btcUsdt = processBtcUsdt(json)
   oldBtcUsdt = btcUsdt
-  client.setJson('btcusdt', btcUsdt)
+  dbClient.setJson('btcusdt', btcUsdt)
   const btcPairs = processBtcPairs(json, btcUsdt.price)
   oldBtcPairs = btcPairs
-  client.setJson('btcpairs', btcPairs)
+  dbClient.setJson('btcpairs', btcPairs)
 }
 
 
@@ -64,8 +66,8 @@ const addUsdtPrice = (btcPairs, btcUsdtPrice) => {
 
 let updatePricesInteval = null
 
-const setUpdatePricesIntervalInSeconds = seconds => {
-  updatePricesInteval = setInterval(updatePrices, seconds * 1000)
+client.setUpdateInterval = ms => {
+  updatePricesInteval = setInterval(updatePrices, ms)
 }
 
-module.exports = setUpdatePricesIntervalInSeconds
+module.exports = client

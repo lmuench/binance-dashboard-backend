@@ -1,4 +1,4 @@
-const client = require('./redis-client')
+const client = require('../data/redis-client')
 
 const rest = {}
 
